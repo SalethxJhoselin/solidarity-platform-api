@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: backend-uagrm-solidaria
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DB_URL
+        value: jdbc:postgresql://aws-1-ca-central-1.pooler.supabase.com:5432/postgres?sslmode=require
+      - key: DB_USER
+        value: postgres.stfuvpyvcwyneksyueix
+      - key: DB_PASSWORD
+        sync: false # Ingresar en la consola de Render por seguridad
+      - key: JWT_SECRET
+        sync: false # Clave secreta para generación de tokens JWT
+      - key: CORS_ALLOWED_ORIGINS
+        value: "http://localhost:3000,http://127.0.0.1:3000,https://*.vercel.app,https://*.onrender.com"

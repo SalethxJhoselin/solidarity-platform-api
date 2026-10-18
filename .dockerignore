@@ -1,0 +1,11 @@
+target/
+.git/
+.mvn/
+mvnw
+mvnw.cmd
+.idea/
+*.iml
+.vscode/
+uploads/
+*.log
+HELP.md
