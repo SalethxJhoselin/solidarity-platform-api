@@ -18,6 +18,12 @@ public class AdminController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/usuarios")
+    public ResponseEntity<java.util.List<java.util.Map<String, Object>>> listarUsuarios() {
+        return ResponseEntity.ok(adminService.listUsers());
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/asignar-roles")
     public ResponseEntity<java.util.Map<String, Object>> asignarRoles(@Valid @RequestBody RoleAssignRequestDTO requestDTO) {
         adminService.assignRoles(requestDTO);

@@ -17,10 +17,36 @@ public class AdminService {
 
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
+    private final bo.edu.uagrm.backend.repositories.PerfilUsuarioRepository perfilRepository;
 
-    public AdminService(UsuarioRepository usuarioRepository, RolRepository rolRepository) {
+    public AdminService(UsuarioRepository usuarioRepository,
+                        RolRepository rolRepository,
+                        bo.edu.uagrm.backend.repositories.PerfilUsuarioRepository perfilRepository) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
+        this.perfilRepository = perfilRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<java.util.Map<String, Object>> listUsers() {
+        return usuarioRepository.findAll().stream().map(u -> {
+            bo.edu.uagrm.backend.entities.PerfilUsuario perfil = perfilRepository.findById(u.getId()).orElse(null);
+            String name = u.getCorreo();
+            if (perfil != null && perfil.getNombres() != null) {
+                name = perfil.getNombres() + (perfil.getApellidos() != null ? " " + perfil.getApellidos() : "");
+            }
+            java.util.List<String> roles = u.getRoles().stream()
+                    .map(Rol::getNombre)
+                    .map(r -> r.replace("ROLE_", ""))
+                    .map(r -> r.equals("ADMIN") ? "ADMINISTRADOR" : r)
+                    .collect(java.util.stream.Collectors.toList());
+            return java.util.Map.<String, Object>of(
+                    "id", String.valueOf(u.getId()),
+                    "name", name.trim(),
+                    "email", u.getCorreo(),
+                    "roles", roles
+            );
+        }).collect(java.util.stream.Collectors.toList());
     }
 
     @Transactional
