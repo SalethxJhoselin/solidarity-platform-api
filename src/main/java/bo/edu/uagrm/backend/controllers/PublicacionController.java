@@ -81,15 +81,17 @@ public class PublicacionController {
     @GetMapping("/buscar")
     @Operation(summary = "Buscar y filtrar publicaciones (HU16)", description = "Permite buscar por texto (case-insensitive) y filtrar por tipo, categoría, tipo de recurso y antigüedad con paginación")
     public ResponseEntity<org.springframework.data.domain.Page<PublicacionResponseDTO>> buscarPublicaciones(
-            @RequestParam(required = false) String query,
+            @RequestParam(value = "query", required = false) String query,
+            @RequestParam(value = "q", required = false) String q,
             @RequestParam(required = false) TipoPublicacion tipo,
             @RequestParam(required = false) Long categoriaId,
             @RequestParam(required = false) Long tipoRecursoId,
             @RequestParam(defaultValue = "recientes") String orden,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+        String effectiveQuery = (query != null && !query.isBlank()) ? query : q;
         FiltroPublicacionDTO filtro = FiltroPublicacionDTO.builder()
-                .query(query)
+                .query(effectiveQuery)
                 .tipo(tipo)
                 .categoriaId(categoriaId)
                 .tipoRecursoId(tipoRecursoId)

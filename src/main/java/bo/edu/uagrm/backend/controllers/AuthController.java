@@ -26,16 +26,22 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
-    @PostMapping("/recover")
-    public ResponseEntity<String> recoverPassword(@Valid @RequestBody RecoveryRequestDTO request) {
+    @PostMapping({"/recover", "/recovery"})
+    public ResponseEntity<java.util.Map<String, String>> recoverPassword(@Valid @RequestBody RecoveryRequestDTO request) {
         String token = authService.recoverPassword(request);
         // Devolvemos el token solo por motivos de desarrollo/Sprint 1
-        return ResponseEntity.ok("Token de recuperación generado (simulación de email): " + token);
+        return ResponseEntity.ok(java.util.Map.of(
+            "mensaje", "Token de recuperación generado (simulación de email): " + token,
+            "resetToken", token,
+            "token", token
+        ));
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDTO request) {
+    public ResponseEntity<java.util.Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequestDTO request) {
         authService.resetPassword(request);
-        return ResponseEntity.ok("Contraseña restablecida correctamente");
+        return ResponseEntity.ok(java.util.Map.of(
+            "mensaje", "Contraseña restablecida correctamente"
+        ));
     }
 }

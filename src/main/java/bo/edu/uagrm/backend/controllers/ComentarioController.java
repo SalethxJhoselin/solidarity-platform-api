@@ -29,15 +29,19 @@ public class ComentarioController {
         this.usuarioRepository = usuarioRepository;
     }
 
-    @PostMapping("/api/v1/publicaciones/{publicacionId}/comentarios")
+    @PostMapping({"/api/v1/publicaciones/{publicacionId}/comentarios", "/api/v1/comentarios"})
     @SecurityRequirement(name = "BearerAuth")
     @Operation(summary = "Agregar comentario a una publicación (HU15)")
     public ResponseEntity<ComentarioResponseDTO> agregarComentario(
-            @PathVariable Long publicacionId,
+            @PathVariable(required = false) Long publicacionId,
             @Valid @RequestBody ComentarioRequestDTO request,
             Authentication authentication) {
         Usuario usuario = getAuthenticatedUser(authentication);
-        return new ResponseEntity<>(comentarioService.agregarComentario(publicacionId, usuario.getId(), request), HttpStatus.CREATED);
+        Long targetPubId = publicacionId != null ? publicacionId : request.getPublicacionId();
+        if (targetPubId == null) {
+            throw new bo.edu.uagrm.backend.exceptions.BadRequestException("Debe especificar el ID de la publicación");
+        }
+        return new ResponseEntity<>(comentarioService.agregarComentario(targetPubId, usuario.getId(), request), HttpStatus.CREATED);
     }
 
     @GetMapping("/api/v1/publicaciones/{publicacionId}/comentarios")

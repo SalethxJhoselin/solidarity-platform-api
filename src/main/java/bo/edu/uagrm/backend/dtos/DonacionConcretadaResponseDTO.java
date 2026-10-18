@@ -23,4 +23,9 @@ public class DonacionConcretadaResponseDTO {
     private Integer cantidadEntregada;
     private String observaciones;
     private LocalDateTime fechaEntrega;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("donacionId")
+    public Long getDonacionId() {
+        return id;
+    }
 }

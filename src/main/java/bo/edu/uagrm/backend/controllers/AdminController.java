@@ -19,8 +19,12 @@ public class AdminController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/asignar-roles")
-    public ResponseEntity<String> asignarRoles(@Valid @RequestBody RoleAssignRequestDTO requestDTO) {
+    public ResponseEntity<java.util.Map<String, Object>> asignarRoles(@Valid @RequestBody RoleAssignRequestDTO requestDTO) {
         adminService.assignRoles(requestDTO);
-        return ResponseEntity.ok("Roles asignados correctamente al usuario ID: " + requestDTO.getUsuarioId());
+        return ResponseEntity.ok(java.util.Map.of(
+            "mensaje", "Roles asignados correctamente al usuario ID: " + requestDTO.getUsuarioId(),
+            "usuarioId", requestDTO.getUsuarioId(),
+            "roles", requestDTO.getRoles()
+        ));
     }
 }

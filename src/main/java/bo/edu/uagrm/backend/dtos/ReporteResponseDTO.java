@@ -30,4 +30,9 @@ public class ReporteResponseDTO {
 
     private LocalDateTime fechaCreacion;
     private LocalDateTime fechaResolucion;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("estado")
+    public EstadoReporte getEstado() {
+        return estadoReporte;
+    }
 }

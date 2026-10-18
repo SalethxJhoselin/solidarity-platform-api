@@ -87,9 +87,16 @@ public class ReporteController {
     @Operation(summary = "Resolver reporte individual de contenido (Admin)", description = "Cambia el estado del reporte a APROBADO_SANCIONADO o DESCARTADO")
     public ResponseEntity<ReporteResponseDTO> resolverReporte(
             @PathVariable Long id,
-            @RequestParam EstadoReporte nuevoEstado,
-            @RequestParam(required = false) String resolucionAdmin) {
-        return ResponseEntity.ok(reporteService.resolverReporte(id, nuevoEstado, resolucionAdmin));
+            @RequestParam(required = false) EstadoReporte nuevoEstado,
+            @RequestParam(required = false) Boolean descartar,
+            @RequestParam(value = "resolucionAdmin", required = false) String resolucionAdmin,
+            @RequestParam(value = "resolucion", required = false) String resolucion) {
+        EstadoReporte estado = nuevoEstado;
+        if (estado == null) {
+            estado = Boolean.TRUE.equals(descartar) ? EstadoReporte.DESCARTADO : EstadoReporte.APROBADO_SANCIONADO;
+        }
+        String motivo = resolucionAdmin != null ? resolucionAdmin : resolucion;
+        return ResponseEntity.ok(reporteService.resolverReporte(id, estado, motivo));
     }
 
     private Usuario getAuthenticatedUser(Authentication authentication) {

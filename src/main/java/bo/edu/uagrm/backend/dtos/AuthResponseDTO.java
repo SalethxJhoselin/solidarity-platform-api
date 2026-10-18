@@ -1,5 +1,6 @@
 package bo.edu.uagrm.backend.dtos;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,4 +16,10 @@ public class AuthResponseDTO {
     private Long usuarioId;
     private String correo;
     private List<String> roles;
+
+    @JsonProperty("id")
+    public Long getId() {
+        return usuarioId;
+    }
 }
+

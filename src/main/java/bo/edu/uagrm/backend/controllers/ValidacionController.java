@@ -22,11 +22,19 @@ public class ValidacionController {
         this.usuarioRepository = usuarioRepository;
     }
 
-    @PostMapping
-    public ResponseEntity<String> solicitarValidacion(Authentication authentication, @Valid @RequestBody ValidacionRequestDTO requestDTO) {
+    @PostMapping({"", "/registro-academico"})
+    public ResponseEntity<java.util.Map<String, Object>> solicitarValidacion(
+            Authentication authentication,
+            @Valid @RequestBody ValidacionRequestDTO requestDTO) {
         Usuario usuario = getAuthenticatedUser(authentication);
         validacionService.solicitarValidacion(usuario, requestDTO);
-        return ResponseEntity.ok("Solicitud de validación enviada correctamente");
+        return ResponseEntity.ok(java.util.Map.of(
+            "mensaje", "Solicitud de validación enviada correctamente",
+            "valido", true,
+            "registroAcademico", requestDTO.getRegistroUagrm(),
+            "registroUagrm", requestDTO.getRegistroUagrm(),
+            "estado", "PENDIENTE"
+        ));
     }
 
     private Usuario getAuthenticatedUser(Authentication authentication) {

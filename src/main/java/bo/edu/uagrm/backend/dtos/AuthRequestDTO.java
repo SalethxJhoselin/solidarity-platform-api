@@ -11,5 +11,6 @@ public class AuthRequestDTO {
     private String correo;
 
     @NotBlank(message = "La contraseña es obligatoria")
+    @com.fasterxml.jackson.annotation.JsonAlias({"contrasena", "contraseña"})
     private String password;
 }

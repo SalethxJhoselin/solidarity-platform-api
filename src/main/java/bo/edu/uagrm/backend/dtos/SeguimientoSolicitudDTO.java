@@ -21,4 +21,9 @@ public class SeguimientoSolicitudDTO {
     private String categoriaNombre;
     private LocalDateTime fechaCreacion;
     private List<TimelineHitoDTO> lineaDeTiempo;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("hitos")
+    public List<TimelineHitoDTO> getHitos() {
+        return lineaDeTiempo;
+    }
 }

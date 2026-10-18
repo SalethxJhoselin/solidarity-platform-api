@@ -1,5 +1,6 @@
 package bo.edu.uagrm.backend.dtos;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -13,6 +14,7 @@ public class RegisterRequestDTO {
 
     @NotBlank(message = "La contraseña es obligatoria")
     @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
+    @JsonAlias({"contrasena", "contraseña"})
     private String password;
 
     @NotBlank(message = "Los nombres son obligatorios")
@@ -21,3 +23,4 @@ public class RegisterRequestDTO {
     @NotBlank(message = "Los apellidos son obligatorios")
     private String apellidos;
 }
+

@@ -327,7 +327,7 @@ public class PublicacionService {
     // ==========================================
     private void validarAutoriaOAdmin(Publicacion publicacion, Long usuarioId, boolean esAdmin) {
         if (!publicacion.getUsuario().getId().equals(usuarioId) && !esAdmin) {
-            throw new BadRequestException("No tiene permisos para modificar o dar de baja esta publicación");
+            throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para modificar o dar de baja esta publicación");
         }
     }
 

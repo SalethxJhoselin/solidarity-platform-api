@@ -78,7 +78,7 @@ public class ComentarioService {
 
         // Criterio 2: Validar que la petición provenga del autor o admin
         if (!comentario.getUsuario().getId().equals(usuarioId) && !esAdmin) {
-            throw new BadRequestException("No tiene permisos para modificar este comentario");
+            throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para modificar este comentario");
         }
 
         comentario.setContenido(request.getContenido().trim());
@@ -93,7 +93,7 @@ public class ComentarioService {
 
         // Criterio 2: Validar que la petición provenga del autor o admin
         if (!comentario.getUsuario().getId().equals(usuarioId) && !esAdmin) {
-            throw new BadRequestException("No tiene permisos para eliminar este comentario");
+            throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para eliminar este comentario");
         }
 
         comentarioRepository.delete(comentario);

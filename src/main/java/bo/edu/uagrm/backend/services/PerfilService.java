@@ -21,6 +21,7 @@ public class PerfilService {
                 .orElseThrow(() -> new ResourceNotFoundException("Perfil no encontrado para el usuario con ID: " + usuarioId));
 
         return PerfilDTO.builder()
+                .correo(perfil.getUsuario() != null ? perfil.getUsuario().getCorreo() : null)
                 .nombres(perfil.getNombres())
                 .apellidos(perfil.getApellidos())
                 .descripcion(perfil.getDescripcion())
@@ -46,6 +47,7 @@ public class PerfilService {
 
         perfilUsuarioRepository.save(perfil);
 
+        perfilDTO.setCorreo(perfil.getUsuario() != null ? perfil.getUsuario().getCorreo() : null);
         return perfilDTO;
     }
 }

@@ -21,13 +21,13 @@ public class PerfilController {
         this.usuarioRepository = usuarioRepository;
     }
 
-    @GetMapping
+    @GetMapping({"", "/mi-perfil"})
     public ResponseEntity<PerfilDTO> getPerfil(Authentication authentication) {
         Usuario usuario = getAuthenticatedUser(authentication);
         return ResponseEntity.ok(perfilService.getPerfil(usuario.getId()));
     }
 
-    @PutMapping
+    @PutMapping({"", "/mi-perfil"})
     public ResponseEntity<PerfilDTO> updatePerfil(Authentication authentication, @RequestBody PerfilDTO perfilDTO) {
         Usuario usuario = getAuthenticatedUser(authentication);
         return ResponseEntity.ok(perfilService.updatePerfil(usuario.getId(), perfilDTO));

@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PerfilDTO {
+    private String correo;
     private String nombres;
     private String apellidos;
     private String descripcion;

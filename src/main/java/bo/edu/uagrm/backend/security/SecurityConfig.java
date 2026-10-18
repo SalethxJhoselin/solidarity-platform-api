@@ -62,6 +62,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/donaciones/solicitud/**").permitAll()
                 // Seguimiento y línea de tiempo pública de solicitudes
                 .requestMatchers(HttpMethod.GET, "/api/v1/seguimiento/**").permitAll()
+                // Recomendaciones y match algorítmico público de solicitudes
+                .requestMatchers(HttpMethod.GET, "/api/v1/recomendaciones/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/comentarios/**").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
