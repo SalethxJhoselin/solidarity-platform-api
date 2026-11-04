@@ -1,5 +1,6 @@
 package bo.edu.uagrm.backend.security;
 
+import bo.edu.uagrm.backend.enums.EstadoUsuario;
 import bo.edu.uagrm.backend.entities.Usuario;
 import bo.edu.uagrm.backend.repositories.UsuarioRepository;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -29,10 +30,12 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .map(rol -> new SimpleGrantedAuthority(rol.getNombre()))
                 .collect(Collectors.toList());
 
+        boolean isActivo = usuario.getEstado() == EstadoUsuario.ACTIVO;
+
         return new org.springframework.security.core.userdetails.User(
                 usuario.getCorreo(),
                 usuario.getHashContrasena(),
-                usuario.getEstado().equals("ACTIVO"),
+                isActivo,
                 true,
                 true,
                 true,

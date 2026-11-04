@@ -45,29 +45,32 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/**").permitAll()
-                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/v3/api-docs/**", "/api/v1/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/api/v1/swagger-ui/**", "/api/v1/swagger-ui.html").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
-                // Catálogos públicos de sólo lectura
-                .requestMatchers(HttpMethod.GET, "/api/v1/categorias").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/categorias/{id:[0-9]+}").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/tipos-recurso").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/tipos-recurso/{id:[0-9]+}").permitAll()
-                // Tablón, búsqueda y detalle de publicaciones público
-                .requestMatchers(HttpMethod.GET, "/api/v1/publicaciones").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/publicaciones/buscar").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/publicaciones/{id:[0-9]+}").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/publicaciones/{id:[0-9]+}/comentarios").permitAll()
-                // Visualización y descarga pública de archivos adjuntos (imágenes, PDFs de publicaciones)
-                .requestMatchers(HttpMethod.GET, "/api/v1/archivos/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/donaciones/solicitud/**").permitAll()
-                // Seguimiento y línea de tiempo pública de solicitudes
-                .requestMatchers(HttpMethod.GET, "/api/v1/seguimiento/**").permitAll()
-                // Recomendaciones y match algorítmico público de solicitudes
-                .requestMatchers(HttpMethod.GET, "/api/v1/recomendaciones/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/comentarios/**").permitAll()
+                // Public read-only catalogs (Categories & Resource Types)
+                .requestMatchers(HttpMethod.GET, "/api/v1/categories/**", "/api/v1/categorias/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/resource-types/**", "/api/v1/tipos-recurso/**").permitAll()
+                // Public publications feed, search, and detail
+                .requestMatchers(HttpMethod.GET, "/api/v1/publications/**", "/api/v1/publicaciones/**").permitAll()
+                // Public files and attachments
+                .requestMatchers(HttpMethod.GET, "/api/v1/files/**", "/api/v1/archivos/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/donations/**", "/api/v1/donaciones/**").permitAll()
+                // Public tracking timeline
+                .requestMatchers(HttpMethod.GET, "/api/v1/tracking/**", "/api/v1/seguimiento/**").permitAll()
+                // Public algorithmic recommendations
+                .requestMatchers(HttpMethod.GET, "/api/v1/recommendations/**", "/api/v1/recomendaciones/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/comments/**", "/api/v1/comentarios/**").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    response.getWriter().write("{\"codigo\":401,\"mensaje\":\"No autorizado o sesión inválida\",\"errores\":[\"" + authException.getMessage() + "\"]}");
+                })
+            )
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
             
