@@ -1,7 +1,7 @@
 package bo.edu.uagrm.backend.repositories.specifications;
 
 import bo.edu.uagrm.backend.dtos.FiltroPublicacionDTO;
-import bo.edu.uagrm.backend.entities.EstadoPublicacion;
+import bo.edu.uagrm.backend.enums.EstadoPublicacion;
 import bo.edu.uagrm.backend.entities.Publicacion;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
@@ -15,9 +15,9 @@ public class PublicacionSpecification {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            // Criterio 3: Solo publicaciones activas y con estado ABIERTA
+            // Criterio 3: Solo publicaciones vigentes (estados Abierta o En proceso) y activas
             predicates.add(cb.isTrue(root.get("activo")));
-            predicates.add(cb.equal(root.get("estado"), EstadoPublicacion.ABIERTA));
+            predicates.add(root.get("estado").in(EstadoPublicacion.ABIERTA, EstadoPublicacion.EN_PROCESO));
 
             if (filtro != null) {
                 // Criterio 2: Búsqueda textual case-insensitive en título o descripción
