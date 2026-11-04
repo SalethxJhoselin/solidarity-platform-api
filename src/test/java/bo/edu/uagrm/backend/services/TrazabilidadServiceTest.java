@@ -1,5 +1,7 @@
 package bo.edu.uagrm.backend.services;
 
+import bo.edu.uagrm.backend.enums.*;
+
 import bo.edu.uagrm.backend.dtos.SeguimientoSolicitudDTO;
 import bo.edu.uagrm.backend.dtos.TimelineHitoDTO;
 import bo.edu.uagrm.backend.entities.*;

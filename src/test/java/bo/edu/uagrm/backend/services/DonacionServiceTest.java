@@ -3,7 +3,7 @@ package bo.edu.uagrm.backend.services;
 import bo.edu.uagrm.backend.dtos.DonacionConcretadaRequestDTO;
 import bo.edu.uagrm.backend.dtos.DonacionConcretadaResponseDTO;
 import bo.edu.uagrm.backend.entities.DonacionConcretada;
-import bo.edu.uagrm.backend.entities.EstadoPublicacion;
+import bo.edu.uagrm.backend.enums.EstadoPublicacion;
 import bo.edu.uagrm.backend.entities.Publicacion;
 import bo.edu.uagrm.backend.entities.Usuario;
 import bo.edu.uagrm.backend.exceptions.BadRequestException;

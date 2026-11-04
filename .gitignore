@@ -35,3 +35,15 @@ build/
 ### Local artifacts & uploads ###
 uploads/
 *.log
+logs/
+
+### Environment Secrets ###
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+### Temporary test files & scratch ###
+scratch/
+scratch_test.*

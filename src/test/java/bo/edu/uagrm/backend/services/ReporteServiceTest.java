@@ -1,5 +1,7 @@
 package bo.edu.uagrm.backend.services;
 
+import bo.edu.uagrm.backend.enums.*;
+
 import bo.edu.uagrm.backend.dtos.ReporteRequestDTO;
 import bo.edu.uagrm.backend.dtos.ReporteResponseDTO;
 import bo.edu.uagrm.backend.entities.*;

@@ -1,5 +1,7 @@
 package bo.edu.uagrm.backend.services;
 
+import bo.edu.uagrm.backend.enums.*;
+
 import bo.edu.uagrm.backend.dtos.PublicacionResponseDTO;
 import bo.edu.uagrm.backend.dtos.PublicarActividadColectivaRequestDTO;
 import bo.edu.uagrm.backend.dtos.PublicarDonacionRequestDTO;

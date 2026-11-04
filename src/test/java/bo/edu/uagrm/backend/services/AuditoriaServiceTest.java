@@ -1,5 +1,7 @@
 package bo.edu.uagrm.backend.services;
 
+import bo.edu.uagrm.backend.enums.*;
+
 import bo.edu.uagrm.backend.dtos.AuditoriaResponseDTO;
 import bo.edu.uagrm.backend.entities.*;
 import bo.edu.uagrm.backend.repositories.AuditoriaPublicacionRepository;
