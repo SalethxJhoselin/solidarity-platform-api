@@ -1,5 +1,7 @@
 package bo.edu.uagrm.backend.entities;
 
+import bo.edu.uagrm.backend.enums.*;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;

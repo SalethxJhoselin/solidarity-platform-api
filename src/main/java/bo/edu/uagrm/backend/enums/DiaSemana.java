@@ -1,4 +1,4 @@
-package bo.edu.uagrm.backend.entities;
+package bo.edu.uagrm.backend.enums;
 
 public enum DiaSemana {
     LUNES,

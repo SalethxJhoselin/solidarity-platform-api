@@ -1,5 +1,7 @@
 package bo.edu.uagrm.backend.entities;
 
+import bo.edu.uagrm.backend.enums.*;
+
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
