@@ -1,19 +1,33 @@
 package bo.edu.uagrm.backend.services;
 
+import bo.edu.uagrm.backend.dtos.BandejaReportesDTO;
 import bo.edu.uagrm.backend.dtos.ReporteRequestDTO;
 import bo.edu.uagrm.backend.dtos.ReporteResponseDTO;
 import bo.edu.uagrm.backend.entities.*;
+import bo.edu.uagrm.backend.enums.EstadoPublicacion;
+import bo.edu.uagrm.backend.enums.EstadoReporte;
+import bo.edu.uagrm.backend.enums.TipoAccionAuditoria;
 import bo.edu.uagrm.backend.exceptions.BadRequestException;
 import bo.edu.uagrm.backend.exceptions.ResourceNotFoundException;
-import bo.edu.uagrm.backend.repositories.*;
+import bo.edu.uagrm.backend.mappers.ReporteMapper;
+import bo.edu.uagrm.backend.repositories.ComentarioRepository;
+import bo.edu.uagrm.backend.repositories.PublicacionRepository;
+import bo.edu.uagrm.backend.repositories.ReporteContenidoRepository;
+import bo.edu.uagrm.backend.repositories.UsuarioRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Enterprise service managing community moderation reports and administrative triage (HU18, HU19).
+ */
+@Slf4j
 @Service
 public class ReporteService {
 
@@ -21,20 +35,20 @@ public class ReporteService {
     private final PublicacionRepository publicacionRepository;
     private final ComentarioRepository comentarioRepository;
     private final UsuarioRepository usuarioRepository;
-    private final PerfilUsuarioRepository perfilUsuarioRepository;
+    private final ReporteMapper reporteMapper;
     private final AuditoriaService auditoriaService;
 
     public ReporteService(ReporteContenidoRepository reporteRepository,
                           PublicacionRepository publicacionRepository,
                           ComentarioRepository comentarioRepository,
                           UsuarioRepository usuarioRepository,
-                          PerfilUsuarioRepository perfilUsuarioRepository,
+                          ReporteMapper reporteMapper,
                           AuditoriaService auditoriaService) {
         this.reporteRepository = reporteRepository;
         this.publicacionRepository = publicacionRepository;
         this.comentarioRepository = comentarioRepository;
         this.usuarioRepository = usuarioRepository;
-        this.perfilUsuarioRepository = perfilUsuarioRepository;
+        this.reporteMapper = reporteMapper;
         this.auditoriaService = auditoriaService;
     }
 
@@ -51,19 +65,14 @@ public class ReporteService {
         if (request.getPublicacionId() != null) {
             publicacion = publicacionRepository.findById(request.getPublicacionId())
                     .orElseThrow(() -> new ResourceNotFoundException("Publicación reportada no encontrada"));
-
-            if (reporteRepository.existsByDenuncianteIdAndPublicacionId(denuncianteId, request.getPublicacionId())) {
-                throw new BadRequestException("Ya has enviado un reporte previamente para esta publicación");
-            }
         }
 
         Comentario comentario = null;
         if (request.getComentarioId() != null) {
             comentario = comentarioRepository.findById(request.getComentarioId())
                     .orElseThrow(() -> new ResourceNotFoundException("Comentario reportado no encontrado"));
-
-            if (reporteRepository.existsByDenuncianteIdAndComentarioId(denuncianteId, request.getComentarioId())) {
-                throw new BadRequestException("Ya has enviado un reporte previamente para este comentario");
+            if (publicacion == null) {
+                publicacion = comentario.getPublicacion();
             }
         }
 
@@ -72,81 +81,41 @@ public class ReporteService {
                 .publicacion(publicacion)
                 .comentario(comentario)
                 .motivo(request.getMotivo())
-                .detalles(request.getDetalles())
+                .detalles(request.getDetalles() != null ? request.getDetalles().trim() : null)
                 .estadoReporte(EstadoReporte.PENDIENTE)
                 .build();
 
         reporte = reporteRepository.save(reporte);
-        return mapToDTO(reporte);
+        log.info("Report {} submitted by user {} against publication {}", reporte.getId(), denuncianteId,
+                publicacion != null ? publicacion.getId() : "N/A");
+        return reporteMapper.toDTO(reporte);
     }
 
     @Transactional(readOnly = true)
     public List<ReporteResponseDTO> listarReportes(EstadoReporte estado) {
-        List<ReporteContenido> lista;
-        if (estado != null) {
-            lista = reporteRepository.findByEstadoReporteOrderByFechaCreacionDesc(estado);
-        } else {
-            lista = reporteRepository.findAllByOrderByFechaCreacionDesc();
-        }
+        List<ReporteContenido> reportes = (estado != null)
+                ? reporteRepository.findByEstadoReporteOrderByFechaCreacionDesc(estado)
+                : reporteRepository.findAllByOrderByFechaCreacionDesc();
 
-        return lista.stream().map(this::mapToDTO).collect(Collectors.toList());
+        return reportes.stream()
+                .map(reporteMapper::toDTO)
+                .collect(Collectors.toList());
     }
 
-    @Transactional
-    public ReporteResponseDTO resolverReporte(Long reporteId, EstadoReporte nuevoEstado, String resolucionAdmin) {
-        ReporteContenido reporte = reporteRepository.findById(reporteId)
-                .orElseThrow(() -> new ResourceNotFoundException("Reporte no encontrado con ID: " + reporteId));
-
-        reporte.setEstadoReporte(nuevoEstado);
-        reporte.setResolucionAdmin(resolucionAdmin);
-        reporte.setFechaResolucion(LocalDateTime.now());
-
-        // Si se sanciona/aprueba el reporte, se puede bloquear la publicación reportada
-        if (nuevoEstado == EstadoReporte.APROBADO_SANCIONADO && reporte.getPublicacion() != null) {
-            Publicacion pub = reporte.getPublicacion();
-            pub.setEstado(EstadoPublicacion.BLOQUEADA);
-            pub.setActivo(false);
-            publicacionRepository.save(pub);
-        }
-
-        reporte = reporteRepository.save(reporte);
-        return mapToDTO(reporte);
-    }
-
-    // ==========================================
-    // HU19: Bandeja de entrada acumulada y moderación Admin
-    // ==========================================
     @Transactional(readOnly = true)
-    public List<bo.edu.uagrm.backend.dtos.BandejaReportesDTO> obtenerBandejaReportesAcumulados() {
+    public List<BandejaReportesDTO> obtenerBandejaReportesAcumulados() {
         List<ReporteContenido> reportesPendientes = reporteRepository.findByEstadoReporteOrderByFechaCreacionDesc(EstadoReporte.PENDIENTE);
 
         Map<Long, List<ReporteContenido>> porPublicacion = reportesPendientes.stream()
                 .filter(r -> r.getPublicacion() != null)
                 .collect(Collectors.groupingBy(r -> r.getPublicacion().getId()));
 
-        List<bo.edu.uagrm.backend.dtos.BandejaReportesDTO> bandeja = new java.util.ArrayList<>();
+        List<BandejaReportesDTO> bandeja = new ArrayList<>();
 
         for (Map.Entry<Long, List<ReporteContenido>> entry : porPublicacion.entrySet()) {
             List<ReporteContenido> reps = entry.getValue();
             Publicacion pub = reps.get(0).getPublicacion();
-            Usuario autor = pub.getUsuario();
-            PerfilUsuario perfil = perfilUsuarioRepository.findById(autor.getId()).orElse(null);
-            String autorNombre = (perfil != null) ? perfil.getNombres() + " " + perfil.getApellidos() : autor.getCorreo();
-
-            List<MotivoReporte> motivos = reps.stream().map(ReporteContenido::getMotivo).distinct().collect(Collectors.toList());
-            List<ReporteResponseDTO> detalles = reps.stream().map(this::mapToDTO).collect(Collectors.toList());
-
-            bandeja.add(bo.edu.uagrm.backend.dtos.BandejaReportesDTO.builder()
-                    .publicacionId(pub.getId())
-                    .publicacionTitulo(pub.getTitulo())
-                    .autorNombre(autorNombre)
-                    .autorCorreo(autor.getCorreo())
-                    .tipoPublicacion(pub.getTipo())
-                    .totalReportes(reps.size())
-                    .motivos(motivos)
-                    .fechaUltimoReporte(reps.get(0).getFechaCreacion())
-                    .reportesDetalle(detalles)
-                    .build());
+            bandeja.add(reporteMapper.toBandejaDTO(pub, reps));
         }
 
         bandeja.sort((a, b) -> Integer.compare(b.getTotalReportes(), a.getTotalReportes()));
@@ -155,6 +124,11 @@ public class ReporteService {
 
     @Transactional
     public void bloquearPublicacionPorReportes(Long publicacionId, String resolucionAdmin) {
+        bloquearPublicacionPorReportes(publicacionId, null, resolucionAdmin);
+    }
+
+    @Transactional
+    public void bloquearPublicacionPorReportes(Long publicacionId, Usuario admin, String resolucionAdmin) {
         Publicacion pub = publicacionRepository.findById(publicacionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Publicación no encontrada"));
 
@@ -162,7 +136,7 @@ public class ReporteService {
         pub.setActivo(false);
         publicacionRepository.save(pub);
 
-        auditoriaService.registrarEvento(pub, null, bo.edu.uagrm.backend.entities.TipoAccionAuditoria.BLOQUEO_ADMIN,
+        auditoriaService.registrarEvento(pub, admin, TipoAccionAuditoria.BLOQUEO_ADMIN,
                 "estado", "ABIERTA", "BLOQUEADA", "Bloqueo administrativo por acumulación de reportes comunitarios: " + resolucionAdmin);
 
         List<ReporteContenido> reportes = reporteRepository.findAll().stream()
@@ -176,6 +150,9 @@ public class ReporteService {
             r.setFechaResolucion(LocalDateTime.now());
             reporteRepository.save(r);
         }
+
+        log.warn("Publication {} blocked by admin {} with {} pending reports resolved",
+                publicacionId, admin != null ? admin.getCorreo() : "SYSTEM", reportes.size());
     }
 
     @Transactional
@@ -191,28 +168,19 @@ public class ReporteService {
             r.setFechaResolucion(LocalDateTime.now());
             reporteRepository.save(r);
         }
+        log.info("Dismissed {} reports for publication {}", reportes.size(), publicacionId);
     }
 
-    public ReporteResponseDTO mapToDTO(ReporteContenido r) {
-        Usuario d = r.getDenunciante();
-        PerfilUsuario perfil = perfilUsuarioRepository.findById(d.getId()).orElse(null);
-        String denuncianteNombre = (perfil != null) ? perfil.getNombres() + " " + perfil.getApellidos() : d.getCorreo();
+    @Transactional
+    public ReporteResponseDTO resolverReporte(Long reporteId, EstadoReporte nuevoEstado, String resolucionAdmin) {
+        ReporteContenido reporte = reporteRepository.findById(reporteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reporte no encontrado"));
 
-        return ReporteResponseDTO.builder()
-                .id(r.getId())
-                .denuncianteId(d.getId())
-                .denuncianteNombre(denuncianteNombre)
-                .denuncianteCorreo(d.getCorreo())
-                .publicacionId(r.getPublicacion() != null ? r.getPublicacion().getId() : null)
-                .publicacionTitulo(r.getPublicacion() != null ? r.getPublicacion().getTitulo() : null)
-                .comentarioId(r.getComentario() != null ? r.getComentario().getId() : null)
-                .comentarioTexto(r.getComentario() != null ? r.getComentario().getContenido() : null)
-                .motivo(r.getMotivo())
-                .detalles(r.getDetalles())
-                .estadoReporte(r.getEstadoReporte())
-                .resolucionAdmin(r.getResolucionAdmin())
-                .fechaCreacion(r.getFechaCreacion())
-                .fechaResolucion(r.getFechaResolucion())
-                .build();
+        reporte.setEstadoReporte(nuevoEstado);
+        reporte.setResolucionAdmin(resolucionAdmin);
+        reporte.setFechaResolucion(LocalDateTime.now());
+        reporte = reporteRepository.save(reporte);
+        log.info("Report {} resolved to state {}", reporteId, nuevoEstado);
+        return reporteMapper.toDTO(reporte);
     }
 }

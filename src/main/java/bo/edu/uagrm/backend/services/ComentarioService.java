@@ -3,37 +3,42 @@ package bo.edu.uagrm.backend.services;
 import bo.edu.uagrm.backend.dtos.ComentarioRequestDTO;
 import bo.edu.uagrm.backend.dtos.ComentarioResponseDTO;
 import bo.edu.uagrm.backend.entities.Comentario;
-import bo.edu.uagrm.backend.entities.PerfilUsuario;
 import bo.edu.uagrm.backend.entities.Publicacion;
 import bo.edu.uagrm.backend.entities.Usuario;
 import bo.edu.uagrm.backend.exceptions.BadRequestException;
 import bo.edu.uagrm.backend.exceptions.ResourceNotFoundException;
+import bo.edu.uagrm.backend.mappers.ComentarioMapper;
 import bo.edu.uagrm.backend.repositories.ComentarioRepository;
-import bo.edu.uagrm.backend.repositories.PerfilUsuarioRepository;
 import bo.edu.uagrm.backend.repositories.PublicacionRepository;
 import bo.edu.uagrm.backend.repositories.UsuarioRepository;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Enterprise service responsible for publication discussion comments lifecycle (HU15).
+ */
+@Slf4j
 @Service
 public class ComentarioService {
 
     private final ComentarioRepository comentarioRepository;
     private final PublicacionRepository publicacionRepository;
     private final UsuarioRepository usuarioRepository;
-    private final PerfilUsuarioRepository perfilUsuarioRepository;
+    private final ComentarioMapper comentarioMapper;
 
     public ComentarioService(ComentarioRepository comentarioRepository,
                              PublicacionRepository publicacionRepository,
                              UsuarioRepository usuarioRepository,
-                             PerfilUsuarioRepository perfilUsuarioRepository) {
+                             ComentarioMapper comentarioMapper) {
         this.comentarioRepository = comentarioRepository;
         this.publicacionRepository = publicacionRepository;
         this.usuarioRepository = usuarioRepository;
-        this.perfilUsuarioRepository = perfilUsuarioRepository;
+        this.comentarioMapper = comentarioMapper;
     }
 
     @Transactional
@@ -41,7 +46,7 @@ public class ComentarioService {
         Publicacion publicacion = publicacionRepository.findById(publicacionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Publicación no encontrada con ID: " + publicacionId));
 
-        if (!publicacion.getActivo()) {
+        if (!Boolean.TRUE.equals(publicacion.getActivo())) {
             throw new BadRequestException("No se pueden agregar comentarios a una publicación inactiva o cancelada");
         }
 
@@ -56,7 +61,8 @@ public class ComentarioService {
                 .build();
 
         comentario = comentarioRepository.save(comentario);
-        return mapToDTO(comentario);
+        log.info("New comment {} posted on publication {} by user {}", comentario.getId(), publicacionId, usuarioId);
+        return comentarioMapper.toDTO(comentario);
     }
 
     @Transactional(readOnly = true)
@@ -64,10 +70,8 @@ public class ComentarioService {
         if (!publicacionRepository.existsById(publicacionId)) {
             throw new ResourceNotFoundException("Publicación no encontrada con ID: " + publicacionId);
         }
-
-        // Criterio 1: Ordenados cronológicamente desde el más antiguo al más reciente
         return comentarioRepository.findByPublicacionIdAndActivoTrueOrderByFechaCreacionAsc(publicacionId).stream()
-                .map(this::mapToDTO)
+                .map(comentarioMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
@@ -76,14 +80,14 @@ public class ComentarioService {
         Comentario comentario = comentarioRepository.findById(comentarioId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comentario no encontrado con ID: " + comentarioId));
 
-        // Criterio 2: Validar que la petición provenga del autor o admin
         if (!comentario.getUsuario().getId().equals(usuarioId) && !esAdmin) {
-            throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para modificar este comentario");
+            throw new AccessDeniedException("No tiene permisos para modificar este comentario");
         }
 
         comentario.setContenido(request.getContenido().trim());
         comentario = comentarioRepository.save(comentario);
-        return mapToDTO(comentario);
+        log.info("Comment {} updated by user {}", comentarioId, usuarioId);
+        return comentarioMapper.toDTO(comentario);
     }
 
     @Transactional
@@ -91,32 +95,12 @@ public class ComentarioService {
         Comentario comentario = comentarioRepository.findById(comentarioId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comentario no encontrado con ID: " + comentarioId));
 
-        // Criterio 2: Validar que la petición provenga del autor o admin
         if (!comentario.getUsuario().getId().equals(usuarioId) && !esAdmin) {
-            throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para eliminar este comentario");
+            throw new AccessDeniedException("No tiene permisos para eliminar este comentario");
         }
 
-        comentarioRepository.delete(comentario);
-    }
-
-    public ComentarioResponseDTO mapToDTO(Comentario c) {
-        Usuario u = c.getUsuario();
-        PerfilUsuario perfil = perfilUsuarioRepository.findById(u.getId()).orElse(null);
-
-        String nombreAutor = (perfil != null) ? perfil.getNombres() + " " + perfil.getApellidos() : u.getCorreo();
-        String fotoAutor = (perfil != null) ? perfil.getUrlFotoPerfil() : null;
-
-        return ComentarioResponseDTO.builder()
-                .id(c.getId())
-                .publicacionId(c.getPublicacion().getId())
-                .usuarioId(u.getId())
-                .autorNombre(nombreAutor)
-                .autorCorreo(u.getCorreo())
-                .autorFoto(fotoAutor)
-                .contenido(c.getContenido())
-                .activo(c.getActivo())
-                .fechaCreacion(c.getFechaCreacion())
-                .fechaActualizacion(c.getFechaActualizacion())
-                .build();
+        comentario.setActivo(false);
+        comentarioRepository.save(comentario);
+        log.info("Comment {} soft-deleted by user {}", comentarioId, usuarioId);
     }
 }

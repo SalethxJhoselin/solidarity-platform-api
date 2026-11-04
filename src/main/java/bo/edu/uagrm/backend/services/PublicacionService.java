@@ -1,10 +1,13 @@
 package bo.edu.uagrm.backend.services;
 
+import bo.edu.uagrm.backend.enums.*;
 import bo.edu.uagrm.backend.dtos.*;
 import bo.edu.uagrm.backend.entities.*;
 import bo.edu.uagrm.backend.exceptions.BadRequestException;
 import bo.edu.uagrm.backend.exceptions.ResourceNotFoundException;
+import bo.edu.uagrm.backend.mappers.PublicacionMapper;
 import bo.edu.uagrm.backend.repositories.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,34 +15,60 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class PublicacionService {
 
     private final PublicacionRepository publicacionRepository;
     private final UsuarioRepository usuarioRepository;
-    private final PerfilUsuarioRepository perfilUsuarioRepository;
+    private final PublicacionMapper publicacionMapper;
     private final CategoriaPublicacionRepository categoriaRepository;
     private final TipoRecursoRepository tipoRecursoRepository;
     private final DisponibilidadVoluntarioRepository disponibilidadRepository;
     private final AuditoriaService auditoriaService;
     private final TrazabilidadService trazabilidadService;
+    private final bo.edu.uagrm.backend.repositories.ValidacionAcademicaRepository validacionRepository;
 
     public PublicacionService(PublicacionRepository publicacionRepository,
                               UsuarioRepository usuarioRepository,
-                              PerfilUsuarioRepository perfilUsuarioRepository,
+                              PublicacionMapper publicacionMapper,
                               CategoriaPublicacionRepository categoriaRepository,
                               TipoRecursoRepository tipoRecursoRepository,
                               DisponibilidadVoluntarioRepository disponibilidadRepository,
                               AuditoriaService auditoriaService,
-                              TrazabilidadService trazabilidadService) {
+                              TrazabilidadService trazabilidadService,
+                              bo.edu.uagrm.backend.repositories.ValidacionAcademicaRepository validacionRepository) {
         this.publicacionRepository = publicacionRepository;
         this.usuarioRepository = usuarioRepository;
-        this.perfilUsuarioRepository = perfilUsuarioRepository;
+        this.publicacionMapper = publicacionMapper;
         this.categoriaRepository = categoriaRepository;
         this.tipoRecursoRepository = tipoRecursoRepository;
         this.disponibilidadRepository = disponibilidadRepository;
         this.auditoriaService = auditoriaService;
         this.trazabilidadService = trazabilidadService;
+        this.validacionRepository = validacionRepository;
+    }
+
+    private void validarUsuarioHabilitadoParaPublicar(Usuario usuario) {
+        if (usuario.getEstado() != EstadoUsuario.ACTIVO) {
+            throw new BadRequestException("Su cuenta no se encuentra activa para realizar publicaciones.");
+        }
+
+        // Si es Admin, puede publicar
+        if (usuario.esAdmin()) {
+            return;
+        }
+
+        // Dominio institucional UAGRM (@uagrm.edu.bo o *.uagrm.edu.bo) está auto-validado
+        if (AuthService.esDominioUagrm(usuario.getCorreo())) {
+            return;
+        }
+
+        // Si es cuenta externa (ej. Gmail), debe estar en estado VALIDADO
+        ValidacionAcademica val = validacionRepository.findFirstByUsuarioOrderByIdDesc(usuario).orElse(null);
+        if (val == null || val.getEstadoValidacion() != EstadoValidacion.VALIDADO) {
+            throw new BadRequestException("Mientras su estado sea 'Pendiente de validación' o 'Rechazado', puede consultar las publicaciones, pero no puede publicar.");
+        }
     }
 
     // ==========================================
@@ -48,6 +77,7 @@ public class PublicacionService {
     @Transactional
     public PublicacionResponseDTO publicarNecesidad(Long usuarioId, PublicarNecesidadRequestDTO request) {
         Usuario usuario = findUsuarioById(usuarioId);
+        validarUsuarioHabilitadoParaPublicar(usuario);
         CategoriaPublicacion categoria = findCategoriaById(request.getCategoriaId());
 
         Publicacion publicacion = Publicacion.builder()
@@ -61,6 +91,7 @@ public class PublicacionService {
                 .build();
 
         publicacion = publicacionRepository.save(publicacion);
+        log.info("Need publication created with ID: {} for user: {}", publicacion.getId(), usuarioId);
         auditoriaService.registrarEvento(publicacion, usuario, TipoAccionAuditoria.CREACION, "estado", null, "ABIERTA", "Publicación de necesidad registrada");
         trazabilidadService.registrarHito(publicacion, EstadoPublicacion.ABIERTA, "Solicitud de ayuda registrada en la plataforma", usuario);
         return mapToDTO(publicacion);
@@ -72,6 +103,7 @@ public class PublicacionService {
     @Transactional
     public PublicacionResponseDTO publicarVoluntariado(Long usuarioId, PublicarVoluntariadoRequestDTO request) {
         Usuario usuario = findUsuarioById(usuarioId);
+        validarUsuarioHabilitadoParaPublicar(usuario);
         CategoriaPublicacion categoriaPrincipal = findCategoriaById(request.getCategoriaPrincipalId());
 
         Set<CategoriaPublicacion> secundarias = new HashSet<>();
@@ -118,6 +150,7 @@ public class PublicacionService {
     @Transactional
     public PublicacionResponseDTO publicarDonacion(Long usuarioId, PublicarDonacionRequestDTO request) {
         Usuario usuario = findUsuarioById(usuarioId);
+        validarUsuarioHabilitadoParaPublicar(usuario);
         TipoRecurso tipoRecurso = tipoRecursoRepository.findById(request.getTipoRecursoId())
                 .orElseThrow(() -> new ResourceNotFoundException("Tipo de recurso no encontrado con ID: " + request.getTipoRecursoId()));
 
@@ -144,6 +177,7 @@ public class PublicacionService {
                 .build();
 
         publicacion = publicacionRepository.save(publicacion);
+        log.info("Donation publication created with ID: {} for user: {}", publicacion.getId(), usuarioId);
         auditoriaService.registrarEvento(publicacion, usuario, TipoAccionAuditoria.CREACION, "estado", null, "ABIERTA", "Oferta de donación de recursos registrada");
         return mapToDTO(publicacion);
     }
@@ -154,6 +188,7 @@ public class PublicacionService {
     @Transactional
     public PublicacionResponseDTO publicarActividadColectiva(Long usuarioId, PublicarActividadColectivaRequestDTO request) {
         Usuario usuario = findUsuarioById(usuarioId);
+        validarUsuarioHabilitadoParaPublicar(usuario);
 
         // Criterio de Aceptación 1: La fecha de fin debe ser estrictamente posterior o igual a la fecha de inicio
         if (request.getFechaFin().isBefore(request.getFechaInicio())) {
@@ -179,6 +214,7 @@ public class PublicacionService {
                 .build();
 
         publicacion = publicacionRepository.save(publicacion);
+        log.info("Collective activity publication created with ID: {} for user: {}", publicacion.getId(), usuarioId);
         auditoriaService.registrarEvento(publicacion, usuario, TipoAccionAuditoria.CREACION, "estado", null, "ABIERTA", "Actividad colectiva solidaria convocada");
         return mapToDTO(publicacion);
     }
@@ -299,6 +335,7 @@ public class PublicacionService {
         }
 
         publicacion = publicacionRepository.save(publicacion);
+        log.info("Publication {} updated by user {}", publicacionId, usuarioId);
         return mapToDTO(publicacion);
     }
 
@@ -317,6 +354,7 @@ public class PublicacionService {
         publicacion.setActivo(false);
         publicacion.setEstado(EstadoPublicacion.CANCELADA);
         publicacionRepository.save(publicacion);
+        log.info("Publication {} soft-deleted by user {}", publicacionId, usuarioId);
 
         auditoriaService.registrarEvento(publicacion, responsable, TipoAccionAuditoria.CANCELACION_SOFT_DELETE,
                 "activo", "true", "false", "Baja lógica (soft delete) solicitada por el usuario o administrador");
@@ -378,81 +416,6 @@ public class PublicacionService {
     }
 
     public PublicacionResponseDTO mapToDTO(Publicacion pub) {
-        Usuario usuario = pub.getUsuario();
-        PerfilUsuario perfil = perfilUsuarioRepository.findById(usuario.getId()).orElse(null);
-
-        String autorNombre = (perfil != null) ? perfil.getNombres() + " " + perfil.getApellidos() : usuario.getCorreo();
-        String autorCarrera = (perfil != null) ? perfil.getCarrera() : null;
-        String autorFacultad = (perfil != null) ? perfil.getFacultad() : null;
-        String autorTelefono = (perfil != null) ? perfil.getTelefono() : null;
-        String autorFoto = (perfil != null) ? perfil.getUrlFotoPerfil() : null;
-
-        List<CategoriaDTO> secundariasDTO = pub.getCategoriasSecundarias().stream()
-                .map(c -> CategoriaDTO.builder()
-                        .id(c.getId())
-                        .nombre(c.getNombre())
-                        .descripcion(c.getDescripcion())
-                        .icono(c.getIcono())
-                        .activo(c.getActivo())
-                        .build())
-                .collect(Collectors.toList());
-
-        List<DisponibilidadDTO> dispsDTO = pub.getDisponibilidades().stream()
-                .map(d -> DisponibilidadDTO.builder()
-                        .diaSemana(d.getDiaSemana())
-                        .turno(d.getTurno())
-                        .build())
-                .collect(Collectors.toList());
-
-        List<ArchivoAdjuntoDTO> archivosDTO = (pub.getArchivos() != null) ? pub.getArchivos().stream()
-                .map(a -> ArchivoAdjuntoDTO.builder()
-                        .id(a.getId())
-                        .nombreOriginal(a.getNombreOriginal())
-                        .nombreAlmacenado(a.getNombreAlmacenado())
-                        .tipoMime(a.getTipoMime())
-                        .tamanoBytes(a.getTamanoBytes())
-                        .urlDescarga(a.getUrlDescarga())
-                        .esImagen(a.getTipoMime() != null && a.getTipoMime().startsWith("image/"))
-                        .fechaCreacion(a.getFechaCreacion())
-                        .build())
-                .collect(Collectors.toList()) : Collections.emptyList();
-
-        int cantidadComentarios = (pub.getComentarios() != null)
-                ? (int) pub.getComentarios().stream().filter(Comentario::getActivo).count()
-                : 0;
-
-        return PublicacionResponseDTO.builder()
-                .id(pub.getId())
-                .usuarioId(usuario.getId())
-                .autorNombre(autorNombre)
-                .autorCorreo(usuario.getCorreo())
-                .autorCarrera(autorCarrera)
-                .autorFacultad(autorFacultad)
-                .autorTelefono(autorTelefono)
-                .autorFotoPerfil(autorFoto)
-                .tipo(pub.getTipo())
-                .titulo(pub.getTitulo())
-                .descripcion(pub.getDescripcion())
-                .categoriaId(pub.getCategoria() != null ? pub.getCategoria().getId() : null)
-                .categoriaNombre(pub.getCategoria() != null ? pub.getCategoria().getNombre() : null)
-                .categoriaIcono(pub.getCategoria() != null ? pub.getCategoria().getIcono() : null)
-                .categoriasSecundarias(secundariasDTO)
-                .estado(pub.getEstado())
-                .activo(pub.getActivo())
-                .tipoRecursoId(pub.getTipoRecurso() != null ? pub.getTipoRecurso().getId() : null)
-                .tipoRecursoNombre(pub.getTipoRecurso() != null ? pub.getTipoRecurso().getNombre() : null)
-                .tipoRecursoUnidad(pub.getTipoRecurso() != null ? pub.getTipoRecurso().getUnidadMedida() : null)
-                .cantidadTotal(pub.getCantidadTotal())
-                .cantidadDisponible(pub.getCantidadDisponible())
-                .fechaInicio(pub.getFechaInicio())
-                .fechaFin(pub.getFechaFin())
-                .lugar(pub.getLugar())
-                .disponibilidadHoraria(pub.getDisponibilidadHoraria())
-                .disponibilidades(dispsDTO)
-                .archivos(archivosDTO)
-                .cantidadComentarios(cantidadComentarios)
-                .fechaCreacion(pub.getFechaCreacion())
-                .fechaActualizacion(pub.getFechaActualizacion())
-                .build();
+        return publicacionMapper.toDTO(pub);
     }
 }

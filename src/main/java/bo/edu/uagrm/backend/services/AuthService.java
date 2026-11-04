@@ -1,5 +1,7 @@
 package bo.edu.uagrm.backend.services;
 
+import bo.edu.uagrm.backend.enums.*;
+
 import bo.edu.uagrm.backend.dtos.*;
 import bo.edu.uagrm.backend.entities.*;
 import bo.edu.uagrm.backend.exceptions.BadRequestException;
@@ -27,6 +29,7 @@ public class AuthService {
     private final RolRepository rolRepository;
     private final PerfilUsuarioRepository perfilUsuarioRepository;
     private final TokenRecuperacionContrasenaRepository tokenRepository;
+    private final ValidacionAcademicaRepository validacionRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
@@ -35,18 +38,27 @@ public class AuthService {
     private jakarta.persistence.EntityManager entityManager;
 
     public AuthService(UsuarioRepository usuarioRepository, RolRepository rolRepository,
-                       PerfilUsuarioRepository perfilUsuarioRepository,
-                       TokenRecuperacionContrasenaRepository tokenRepository,
-                       PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager,
-                       JwtUtils jwtUtils, UserDetailsService userDetailsService) {
+            PerfilUsuarioRepository perfilUsuarioRepository,
+            TokenRecuperacionContrasenaRepository tokenRepository,
+            ValidacionAcademicaRepository validacionRepository,
+            PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager,
+            JwtUtils jwtUtils, UserDetailsService userDetailsService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.perfilUsuarioRepository = perfilUsuarioRepository;
         this.tokenRepository = tokenRepository;
+        this.validacionRepository = validacionRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtUtils = jwtUtils;
         this.userDetailsService = userDetailsService;
+    }
+
+    public static boolean esDominioUagrm(String correo) {
+        if (correo == null || !correo.contains("@"))
+            return false;
+        String dominio = correo.substring(correo.indexOf("@") + 1).toLowerCase().trim();
+        return dominio.equals("uagrm.edu.bo") || dominio.endsWith(".uagrm.edu.bo");
     }
 
     @Transactional
@@ -56,34 +68,56 @@ public class AuthService {
         }
 
         Usuario usuario = new Usuario();
-        usuario.setCorreo(request.getCorreo());
+        usuario.setCorreo(request.getCorreo().trim());
         usuario.setHashContrasena(passwordEncoder.encode(request.getPassword()));
-        
-        // Asignar rol por defecto a un visitante que se registra (ej. ROLE_SOLICITANTE o se le puede dar ROLE_USER)
-        Rol rol = rolRepository.findByNombre("ROLE_SOLICITANTE")
-                .orElseThrow(() -> new ResourceNotFoundException("Rol por defecto no encontrado"));
+        usuario.setEstado(EstadoUsuario.ACTIVO);
+
+        // Asignar rol oficial de Usuario Registrado (RF-03, HU1)
+        Rol rol = rolRepository.findByNombre(RolNombre.ROLE_USUARIO.name())
+                .orElseThrow(() -> new ResourceNotFoundException("Rol por defecto ROLE_USUARIO no encontrado"));
         usuario.getRoles().add(rol);
-        
+
         usuario = usuarioRepository.saveAndFlush(usuario);
 
         PerfilUsuario perfil = new PerfilUsuario();
         perfil.setUsuario(usuario);
-        perfil.setNombres(request.getNombres());
-        perfil.setApellidos(request.getApellidos());
+        perfil.setNombres(request.getNombres().trim());
+        perfil.setApellidos(request.getApellidos().trim());
         entityManager.persist(perfil);
+
+        // HU5: Validación automática para dominios @uagrm.edu.bo o *.uagrm.edu.bo
+        boolean autoValidado = esDominioUagrm(usuario.getCorreo());
+        EstadoValidacion estadoVal = autoValidado ? EstadoValidacion.VALIDADO : EstadoValidacion.PENDIENTE;
+
+        ValidacionAcademica validacion = new ValidacionAcademica();
+        validacion.setUsuario(usuario);
+        validacion.setRegistroUagrm("REG-" + usuario.getId());
+        validacion.setIdentificadorInstitucional("REG-" + usuario.getId());
+        validacion.setTipo(TipoMiembro.ESTUDIANTE);
+        validacion.setTipoMiembro(TipoMiembro.ESTUDIANTE);
+        validacion.setEstadoValidacion(estadoVal);
+        if (estadoVal == EstadoValidacion.VALIDADO) {
+            validacion.setTipoVerificacion(TipoVerificacion.CORREO_INSTITUCIONAL);
+            validacion.setFechaVerificacion(LocalDateTime.now());
+        } else {
+            validacion.setTipoVerificacion(TipoVerificacion.DOCUMENTO_MANUAL);
+        }
+        validacionRepository.save(validacion);
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(usuario.getCorreo());
         String token = jwtUtils.generateToken(userDetails);
 
         List<String> rolesStr = usuario.getRoles().stream().map(Rol::getNombre).collect(Collectors.toList());
 
-        return new AuthResponseDTO(token, usuario.getId(), usuario.getCorreo(), rolesStr);
+        AuthResponseDTO response = new AuthResponseDTO(token, usuario.getId(), usuario.getCorreo(), rolesStr);
+        response.setEstado(usuario.getEstado());
+        response.setEstadoValidacion(estadoVal);
+        return response;
     }
 
     public AuthResponseDTO login(AuthRequestDTO request) {
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getCorreo(), request.getPassword())
-        );
+                new UsernamePasswordAuthenticationToken(request.getCorreo(), request.getPassword()));
 
         Usuario usuario = usuarioRepository.findByCorreo(request.getCorreo())
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
@@ -93,7 +127,17 @@ public class AuthService {
 
         List<String> rolesStr = usuario.getRoles().stream().map(Rol::getNombre).collect(Collectors.toList());
 
-        return new AuthResponseDTO(token, usuario.getId(), usuario.getCorreo(), rolesStr);
+        EstadoValidacion estadoVal = EstadoValidacion.VALIDADO;
+        if (!esDominioUagrm(usuario.getCorreo())) {
+            estadoVal = validacionRepository.findFirstByUsuarioOrderByIdDesc(usuario)
+                    .map(ValidacionAcademica::getEstadoValidacion)
+                    .orElse(EstadoValidacion.PENDIENTE);
+        }
+
+        AuthResponseDTO response = new AuthResponseDTO(token, usuario.getId(), usuario.getCorreo(), rolesStr);
+        response.setEstado(usuario.getEstado());
+        response.setEstadoValidacion(estadoVal);
+        return response;
     }
 
     @Transactional
@@ -102,15 +146,14 @@ public class AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         String token = UUID.randomUUID().toString();
-        
+
         TokenRecuperacionContrasena recoveryToken = new TokenRecuperacionContrasena();
         recoveryToken.setUsuario(usuario);
         recoveryToken.setHashToken(token);
         recoveryToken.setFechaExpiracion(LocalDateTime.now().plusHours(1));
         tokenRepository.save(recoveryToken);
 
-        // Simulate sending email
-        return token; // En un entorno real, no se devuelve el token al cliente, se envía por correo.
+        return token;
     }
 
     @Transactional
@@ -130,7 +173,13 @@ public class AuthService {
         usuario.setHashContrasena(passwordEncoder.encode(request.getNewPassword()));
         usuarioRepository.save(usuario);
 
-        recoveryToken.setFechaUso(LocalDateTime.now());
-        tokenRepository.save(recoveryToken);
+        // HU3 Criterio 4: Invalidar inmediatamente todos los tokens anteriores del
+        // usuario
+        List<TokenRecuperacionContrasena> tokensUsuario = tokenRepository.findByUsuarioAndFechaUsoIsNull(usuario);
+        LocalDateTime ahora = LocalDateTime.now();
+        for (TokenRecuperacionContrasena t : tokensUsuario) {
+            t.setFechaUso(ahora);
+        }
+        tokenRepository.saveAll(tokensUsuario);
     }
 }

@@ -4,7 +4,7 @@ import bo.edu.uagrm.backend.dtos.AuditoriaResponseDTO;
 import bo.edu.uagrm.backend.entities.AuditoriaPublicacion;
 import bo.edu.uagrm.backend.entities.PerfilUsuario;
 import bo.edu.uagrm.backend.entities.Publicacion;
-import bo.edu.uagrm.backend.entities.TipoAccionAuditoria;
+import bo.edu.uagrm.backend.enums.TipoAccionAuditoria;
 import bo.edu.uagrm.backend.entities.Usuario;
 import bo.edu.uagrm.backend.repositories.AuditoriaPublicacionRepository;
 import bo.edu.uagrm.backend.repositories.PerfilUsuarioRepository;
