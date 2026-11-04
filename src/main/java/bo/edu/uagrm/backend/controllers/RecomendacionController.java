@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/recomendaciones")
+@RequestMapping({"/recommendations", "/recomendaciones"})
 @Tag(name = "Recomendaciones Inteligentes (Match)", description = "Endpoints para el motor de recomendación inteligente de ofertas de voluntariado y donaciones compatibles con solicitudes (HU22)")
 public class RecomendacionController {
 

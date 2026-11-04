@@ -1,7 +1,7 @@
 package bo.edu.uagrm.backend.dtos;
 
-import bo.edu.uagrm.backend.entities.DiaSemana;
-import bo.edu.uagrm.backend.entities.Turno;
+import bo.edu.uagrm.backend.enums.DiaSemana;
+import bo.edu.uagrm.backend.enums.Turno;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 

@@ -1,6 +1,6 @@
 package bo.edu.uagrm.backend.dtos;
 
-import bo.edu.uagrm.backend.entities.TipoAccionAuditoria;
+import bo.edu.uagrm.backend.enums.TipoAccionAuditoria;
 import lombok.*;
 
 import java.time.LocalDateTime;

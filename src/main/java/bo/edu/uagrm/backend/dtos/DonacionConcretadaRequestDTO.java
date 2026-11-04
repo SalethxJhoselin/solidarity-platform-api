@@ -22,4 +22,8 @@ public class DonacionConcretadaRequestDTO {
 
     @Size(max = 1000, message = "Las observaciones no pueden exceder 1000 caracteres")
     private String observaciones;
+
+    public Integer getCantidad() {
+        return cantidadEntregada;
+    }
 }

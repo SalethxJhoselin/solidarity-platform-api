@@ -1,5 +1,7 @@
 package bo.edu.uagrm.backend.dtos;
 
+import bo.edu.uagrm.backend.enums.*;
+
 import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;

@@ -1,5 +1,6 @@
 package bo.edu.uagrm.backend.controllers;
 
+import bo.edu.uagrm.backend.dtos.MensajeResponseDTO;
 import bo.edu.uagrm.backend.dtos.TipoRecursoDTO;
 import bo.edu.uagrm.backend.services.TipoRecursoService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/tipos-recurso")
+@RequestMapping({"/resource-types", "/tipos-recurso"})
 @Tag(name = "Tipos de Recurso", description = "Endpoints para la gestión de tipos de recursos donables (HU8)")
 public class TipoRecursoController {
 
@@ -24,7 +25,7 @@ public class TipoRecursoController {
         this.tipoRecursoService = tipoRecursoService;
     }
 
-    @GetMapping
+    @GetMapping({"", "/"})
     @Operation(summary = "Listar tipos de recursos activos", description = "Retorna el catálogo de tipos de recursos disponibles para donaciones")
     public ResponseEntity<List<TipoRecursoDTO>> listarActivos() {
         return ResponseEntity.ok(tipoRecursoService.obtenerTiposActivos());
@@ -38,13 +39,13 @@ public class TipoRecursoController {
         return ResponseEntity.ok(tipoRecursoService.obtenerTodosTipos());
     }
 
-    @GetMapping("/{id}")
+    @GetMapping({"/{id}"})
     @Operation(summary = "Obtener tipo de recurso por ID")
     public ResponseEntity<TipoRecursoDTO> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(tipoRecursoService.obtenerPorId(id));
     }
 
-    @PostMapping
+    @PostMapping({"", "/"})
     @PreAuthorize("hasRole('ADMIN')")
     @SecurityRequirement(name = "BearerAuth")
     @Operation(summary = "Crear nuevo tipo de recurso (Admin)")
@@ -52,7 +53,7 @@ public class TipoRecursoController {
         return new ResponseEntity<>(tipoRecursoService.crearTipoRecurso(dto), HttpStatus.CREATED);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping({"/{id}"})
     @PreAuthorize("hasRole('ADMIN')")
     @SecurityRequirement(name = "BearerAuth")
     @Operation(summary = "Actualizar tipo de recurso (Admin)")
@@ -60,15 +61,16 @@ public class TipoRecursoController {
         return ResponseEntity.ok(tipoRecursoService.actualizarTipoRecurso(id, dto));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping({"/{id}"})
     @PreAuthorize("hasRole('ADMIN')")
     @SecurityRequirement(name = "BearerAuth")
     @Operation(summary = "Eliminar o inactivar tipo de recurso (Admin)", description = "Si tiene donaciones registradas se inactiva; si no, se elimina")
-    public ResponseEntity<String> eliminarODesactivar(@PathVariable Long id) {
-        return ResponseEntity.ok(tipoRecursoService.eliminarODesactivarTipoRecurso(id));
+    public ResponseEntity<MensajeResponseDTO> eliminarODesactivar(@PathVariable Long id) {
+        String msg = tipoRecursoService.eliminarODesactivarTipoRecurso(id);
+        return ResponseEntity.ok(MensajeResponseDTO.of(msg, id, null));
     }
 
-    @PatchMapping("/{id}/estado")
+    @PatchMapping({"/{id}/status", "/{id}/estado"})
     @PreAuthorize("hasRole('ADMIN')")
     @SecurityRequirement(name = "BearerAuth")
     @Operation(summary = "Cambiar estado activo/inactivo (Admin)")

@@ -1,6 +1,6 @@
 package bo.edu.uagrm.backend.dtos;
 
-import bo.edu.uagrm.backend.entities.MotivoReporte;
+import bo.edu.uagrm.backend.enums.MotivoReporte;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;

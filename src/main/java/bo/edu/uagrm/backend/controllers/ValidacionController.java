@@ -1,45 +1,44 @@
 package bo.edu.uagrm.backend.controllers;
 
 import bo.edu.uagrm.backend.dtos.ValidacionRequestDTO;
+import bo.edu.uagrm.backend.dtos.ValidacionResponseDTO;
 import bo.edu.uagrm.backend.entities.Usuario;
-import bo.edu.uagrm.backend.exceptions.ResourceNotFoundException;
-import bo.edu.uagrm.backend.repositories.UsuarioRepository;
+import bo.edu.uagrm.backend.security.CurrentUser;
 import bo.edu.uagrm.backend.services.ValidacionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * REST controller for academic student/teacher validation requests (HU5).
+ */
 @RestController
-@RequestMapping("/api/v1/validacion")
+@RequestMapping({"/verification", "/validacion"})
+@Tag(name = "Validación Académica", description = "Endpoints for academic profile registration and status inquiry (HU5)")
+@SecurityRequirement(name = "BearerAuth")
 public class ValidacionController {
 
     private final ValidacionService validacionService;
-    private final UsuarioRepository usuarioRepository;
 
-    public ValidacionController(ValidacionService validacionService, UsuarioRepository usuarioRepository) {
+    public ValidacionController(ValidacionService validacionService) {
         this.validacionService = validacionService;
-        this.usuarioRepository = usuarioRepository;
     }
 
-    @PostMapping({"", "/registro-academico"})
-    public ResponseEntity<java.util.Map<String, Object>> solicitarValidacion(
-            Authentication authentication,
+    @PostMapping({"", "/", "/academic-record", "/registro-academico"})
+    @Operation(summary = "Submit academic validation request (HU5)", description = "Submits university registration ID and member type (student/teacher)")
+    public ResponseEntity<ValidacionResponseDTO> solicitarValidacion(
+            @CurrentUser Usuario usuario,
             @Valid @RequestBody ValidacionRequestDTO requestDTO) {
-        Usuario usuario = getAuthenticatedUser(authentication);
-        validacionService.solicitarValidacion(usuario, requestDTO);
-        return ResponseEntity.ok(java.util.Map.of(
-            "mensaje", "Solicitud de validación enviada correctamente",
-            "valido", true,
-            "registroAcademico", requestDTO.getRegistroUagrm(),
-            "registroUagrm", requestDTO.getRegistroUagrm(),
-            "estado", "PENDIENTE"
-        ));
+        ValidacionResponseDTO response = validacionService.solicitarValidacion(usuario, requestDTO);
+        return ResponseEntity.ok(response);
     }
 
-    private Usuario getAuthenticatedUser(Authentication authentication) {
-        String correo = authentication.getName();
-        return usuarioRepository.findByCorreo(correo)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario autenticado no encontrado"));
+    @GetMapping({"/status", "/estado"})
+    @Operation(summary = "Check academic validation status (HU5)", description = "Returns academic verification status of the authenticated user")
+    public ResponseEntity<ValidacionResponseDTO> obtenerEstadoValidacion(@CurrentUser Usuario usuario) {
+        return ResponseEntity.ok(validacionService.obtenerEstadoValidacion(usuario));
     }
 }

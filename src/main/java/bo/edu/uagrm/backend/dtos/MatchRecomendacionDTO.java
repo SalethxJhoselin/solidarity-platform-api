@@ -1,6 +1,6 @@
 package bo.edu.uagrm.backend.dtos;
 
-import bo.edu.uagrm.backend.entities.TipoPublicacion;
+import bo.edu.uagrm.backend.enums.TipoPublicacion;
 import lombok.*;
 
 import java.util.List;

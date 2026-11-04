@@ -1,7 +1,7 @@
 package bo.edu.uagrm.backend.dtos;
 
-import bo.edu.uagrm.backend.entities.EstadoReporte;
-import bo.edu.uagrm.backend.entities.MotivoReporte;
+import bo.edu.uagrm.backend.enums.EstadoReporte;
+import bo.edu.uagrm.backend.enums.MotivoReporte;
 import lombok.*;
 
 import java.time.LocalDateTime;

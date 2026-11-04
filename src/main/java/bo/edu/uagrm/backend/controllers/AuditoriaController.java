@@ -11,10 +11,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/admin/auditoria")
-@Tag(name = "Auditoría de Publicaciones (Admin)", description = "Endpoints para consultar el historial estructurado de modificaciones, ediciones y cambios de estado (HU20)")
+@RequestMapping({"/admin/audit", "/admin/auditoria"})
+@Tag(name = "Auditoría de Publicaciones (Admin/Moderador)", description = "Endpoints para consultar el historial estructurado de modificaciones, ediciones y cambios de estado (HU20)")
 @SecurityRequirement(name = "BearerAuth")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'MODERADOR')")
 public class AuditoriaController {
 
     private final AuditoriaService auditoriaService;
@@ -23,7 +23,7 @@ public class AuditoriaController {
         this.auditoriaService = auditoriaService;
     }
 
-    @GetMapping("/publicaciones/{id}")
+    @GetMapping({"/publications/{id}", "/publicaciones/{id}"})
     @Operation(summary = "Historial de modificaciones de una publicación (HU20)", description = "Retorna el historial inmutable de cambios (edición de texto, cambios de estado, responsable, valor anterior vs nuevo) para una publicación específica")
     public ResponseEntity<Page<AuditoriaResponseDTO>> obtenerHistorialPorPublicacion(
             @PathVariable Long id,

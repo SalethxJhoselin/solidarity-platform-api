@@ -1,4 +1,4 @@
-package bo.edu.uagrm.backend.exceptions;
+package bo.edu.uagrm.backend.dtos;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

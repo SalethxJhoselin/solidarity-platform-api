@@ -1,6 +1,6 @@
 package bo.edu.uagrm.backend.dtos;
 
-import bo.edu.uagrm.backend.entities.EstadoPublicacion;
+import bo.edu.uagrm.backend.enums.EstadoPublicacion;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
